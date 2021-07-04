@@ -10,34 +10,111 @@
 #include<chrono>
 #include<ctime>
 #include<mutex>
+#include<stack>
 
-int arr[100000000], arr2[100000000], n = 100, numThread = 2;
+struct MyStack {
+    std::stack<int> s;
+    int maxEle;
+
+    int getMax()
+    {
+        if (s.empty())
+            return -1;
+            //cout << "Stack is empty\n";
+        else
+            return maxEle;
+            //cout << "Maximum Element in the stack is: "
+                 //<< maxEle << "\n";
+    }
+
+    // Prints top element of MyStack
+    void peek()
+    {
+        if (s.empty()) {
+            //cout << "Stack is empty ";
+            return;
+        }
+
+        int t = s.top(); // Top element.
+
+       // cout << "Top Most Element is: ";
+
+        // If t < maxEle means maxEle stores
+        // value of t.
+        //(t > maxEle) ? cout << maxEle : cout << t;
+    }
+
+    // Remove the top element from MyStack
+    void pop()
+    {
+        if (s.empty()) {
+            //cout << "Stack is empty\n";
+            return;
+        }
+
+        //cout << "Top Most Element Removed: ";
+        int t = s.top();
+        s.pop();
+
+        // Maximum will change as the maximum element
+        // of the stack is being removed.
+        if (t > maxEle) {
+            //cout << maxEle << "\n";
+            maxEle = 2 * maxEle - t;
+        }
+
+        //else
+            //cout << t << "\n";
+    }
+
+    // Removes top element from MyStack
+    void push(int x)
+    {
+        // Insert new number into the stack
+        if (s.empty()) {
+            maxEle = x;
+            s.push(x);
+            //cout << "Number Inserted: " << x << "\n";
+            return;
+        }
+
+        // If new number is less than maxEle
+        if (x > maxEle) {
+            s.push(2 * x - maxEle);
+            maxEle = x;
+        }
+
+        else
+            s.push(x);
+
+        //cout << "Number Inserted: " << x << "\n";
+    }
+};
+
+int arr[100000000], arr2[100000000], arr3[100000000], n = 40000, numThread = 1;
 bool isSortedd;
 
 
 int getRandom(int);
 void init();
 void printArr();
+void cpyArr(int [], int []);
 void bubbleSort(int, int);
 void sortThread(int, int, int);
 void merge(int);
+void testWithThreads();
 bool isSorted();
 
 int main()
 {
     init();
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    int startTime = clock();
-    sortThread(0, n, numThread);
-    merge(numThread);
-    int endTime = clock();
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    //printArr();
-    std::cout << "Execution time: " <<
-            (endTime - startTime)/double(CLOCKS_PER_SEC)
-            << std::endl;
-    std::cout << isSorted() << std::endl;
-    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[ms]" << std::endl;
+    cpyArr(arr, arr3);
+    do
+    {
+        testWithThreads();
+        numThread *= 2;
+        cpyArr(arr3, arr);
+    }while(numThread <= 4);
     return 0;
 }
 
@@ -54,11 +131,6 @@ void init()
     {
         arr[i] = getRandom(10000000);
     }
-
-    for(int i = 0; i < n; ++i)
-    {
-        std::cout << arr[i] << std::endl;
-    }
 }
 
 void printArr()
@@ -68,6 +140,29 @@ void printArr()
         std::cout << arr2[i] << std::endl;
     }
     std::cout << std::endl;
+}
+
+
+void cpyArr(int arr[], int arr3[])
+{
+    for(int i = 0; i < n; ++i)
+    {
+        arr3[i] = arr[i];
+        arr2[i] = 0;
+    }
+}
+
+
+void testWithThreads()
+{
+    int startTime = clock();
+    sortThread(0, n, numThread);
+    merge(numThread);
+    int endTime = clock();
+    std::cout << "Execution time with " << numThread << " threads: " <<
+            (endTime - startTime)/double(CLOCKS_PER_SEC)
+            << std::endl;
+    std::cout << "Is it sorted: " << isSorted() << std::endl;
 }
 
 bool isSorted()
