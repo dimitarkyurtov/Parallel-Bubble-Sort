@@ -12,7 +12,9 @@
 #include<mutex>
 #include<stack>
 
-int arr[100000000], arr2[100000000], arr3[100000000], n = 50000, numThread = 1;
+
+std::thread threads[10];
+int arr[100000000], arr2[100000000], arr3[100000000], n = 40000, numThread = 1;
 bool isSortedd[65];
 
 
@@ -33,7 +35,9 @@ int main()
     cpyArr(arr, arr3);
     do
     {
+        //printArr();
         testWithThreads();
+        //printArr();
         numThread *= 2;
         cpyArr(arr3, arr);
     }while(numThread <= 4);
@@ -63,7 +67,7 @@ void printArr()
 {
     for(int i = 0; i < n; ++i)
     {
-        std::cout << arr2[i] << std::endl;
+        std::cout << arr[i] << std::endl;
     }
     std::cout << std::endl;
 }
@@ -95,7 +99,7 @@ bool isSorted()
 {
     for(int i = 0; i < n-1; ++i)
     {
-        if(arr2[i] > arr2[i+1])
+        if(arr[i] > arr[i+1])
         {
             std::cout << "Sorting unsuccessful!" << std::endl;
             return false;
@@ -120,13 +124,31 @@ bool isSortedAllThreads()
 void bubbleSort(int start, int end, int threadIdx)
 {
     bool isSorted;
-    int j = 0;
+    int iteration = 0;
+    std::mutex mu;
     if(start == 0)
     {
         start = 1;
     }
     do
     {
+        if(iteration > n)
+        {
+            break;
+        }
+        if(iteration == 1 && threadIdx < numThread)
+        {
+            threads[threadIdx] = std::thread(bubbleSort, threadIdx*(n/numThread), (threadIdx+1)*(n/numThread), threadIdx+1);
+        }
+
+        /*
+        {
+            std::lock_guard<std::mutex> lock(mu);
+            std::cout << "Thread " << threadIdx << " running iteration " << iteration << " start " << start << " end " << end << std::endl;
+            printArr();
+        }
+        */
+
         isSorted = true;
         for(int i = start-1; i < end && i < n-1; ++i)
         {
@@ -136,29 +158,25 @@ void bubbleSort(int start, int end, int threadIdx)
                 isSorted = false;
             }
         }
+        //printArr();
         if(isSorted)
         {
-            isSortedd[threadIdx] = true;
+            isSortedd[threadIdx-1] = true;
         }
         else
         {
-            isSortedd[threadIdx] = false;
+            isSortedd[threadIdx-1] = false;
         }
-    }while(!isSortedAllThreads());
+        iteration++;
+    }while(true);
 }
 
 void sortThread(int start, int end, int numThread)
 {
-    std::thread threads[10];
     int split = (end-start)/numThread;
-    int newStart = start, newEnd = start+split;
 
-    for(int i = 0; i < numThread; ++i)
-    {
-        threads[i] = std::thread(bubbleSort, newStart, newEnd, i);
-        newStart += split;
-        newEnd += split;
-    }
+
+    threads[0] = std::thread(bubbleSort, 0, split, 1);
 
     for(int i = 0; i < numThread; ++i)
     {
