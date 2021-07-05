@@ -10,20 +10,23 @@
 #include<chrono>
 #include<ctime>
 #include<mutex>
-#include<stack>
+#include<vector>
 #include <condition_variable>
 
 
 bool flag[10];
 int index[10];
-std::mutex mu[10], mu2[10];
+std::vector<bool> iters[65];
+std::mutex mu[10], mu2[10], lidermu;
 std::condition_variable myconds[10];
 void Sync_with_previous(int, int);
 void Sync_with_next(int, int);
-std::thread threads[65];
-int arr[100000000], arr2[100000000], arr3[100000000], n = 50000, numThread = 1;
+int arr[100000000], arr2[100000000], arr3[100000000], n = 40000, numThread = 1;
 bool isSortedd[65];
 std::mutex mutexes[65], gl_mu;
+int lider, part;
+bool horn = false;
+
 
 
 int getRandom(int);
@@ -66,7 +69,7 @@ void init()
     srand(time(NULL));
     for(int i = 0; i < n; ++i)
     {
-        arr[i] = getRandom(10000000);
+        arr[i] = getRandom(100000);
     }
     for(int i = 0; i < numThread; ++i)
     {
@@ -78,9 +81,11 @@ void initCond()
 {
     for(int i = 0; i < numThread; ++i)
     {
-        index[i] = 0;
+        index[i] = -1;
         flag[i] = false;
+        iters[i].clear();
     }
+    horn = false;
 }
 
 void printArr()
@@ -113,6 +118,12 @@ void lockAll()
 void testWithThreads()
 {
     initCond();
+    for(int i = 0; i < numThread; ++i)
+    {
+        std::cout << iters[i].size() << std::endl;
+    }
+    lider = numThread - 1;
+    part = n/numThread;
     int startTime = clock();
     sortThread(0, n, numThread);
     //merge(numThread);
@@ -120,6 +131,7 @@ void testWithThreads()
     std::cout << numThread << " threads: " <<
             (endTime - startTime)/double(CLOCKS_PER_SEC)
             << std::endl;
+    //printArr();
     std::cout << "Is it sorted: " << isSorted() << std::endl;
 }
 
@@ -129,7 +141,7 @@ bool isSorted()
     {
         if(arr[i] > arr[i+1])
         {
-            //std::cout << "Sorting unsuccessful!" << std::endl;
+            //std::cout << "Inversion between index " << i << " and " << i+1 << std::endl;
             return false;
         }
     }
@@ -153,61 +165,56 @@ void bubbleSort(int start, int end, int threadIdx)
 {
     bool isSorted;
     int iteration = 0;
-    if(start == 0)
+    int decr = 0;
+    //for(int j = 0; j < 5*n/4; ++j)
+    while(true)
     {
-        start = 1;
-    }
-    for(int j = 0; j < 5*n/4; ++j)
-    {
-       // gl_mu.lock();
-       // std::cout << "Thread " << threadIdx << " iteration " << iteration << std::endl;
-        //gl_mu.unlock();
-        /*
-        if(threadIdx == 0)
-        {
-            gl_mu.lock();
-            for(int i = 0; i < numThread; ++i)
+
+            //std::cout << threadIdx << " " << iteration << std::endl;
+            Sync_with_previous(threadIdx, iteration);
+            isSorted = true;
+            for(int i = start; i < end && i < n-1; ++i)
             {
-                isSortedd[i] = false;
+                if(arr[i] > arr[i+1])
+                {
+                    std::swap(arr[i], arr[i+1]);
+                    isSorted = false;
+                }
             }
-            gl_mu.unlock();
-        }
-        */
-        Sync_with_previous(threadIdx, j);
-        //std::cout << "Thread " << threadIdx << " running\n";
-        isSorted = true;
-        for(int i = start-1; i < end && i < n-1; ++i)
-        {
-            if(arr[i] > arr[i+1])
+            Sync_with_next(threadIdx, iteration);
+            if(iteration < 10*n)
             {
-                std::swap(arr[i], arr[i+1]);
-                isSorted = false;
+                iters[threadIdx].push_back(isSorted);
             }
-        }
-        //printArr();
-        /*
-        if(isSorted)
-        {
-
-            gl_mu.lock();
-            isSortedd[threadIdx] = true;
-            gl_mu.unlock();
-        }
-        else
-        {
-            gl_mu.lock();
-            isSortedd[threadIdx] = false;
-            gl_mu.unlock();
-        }
-        */
-
-       Sync_with_next(threadIdx, j);
-
+            if(threadIdx == numThread-1)
+            {
+                int ctr = 0;
+                for(int i = 0; i < numThread; ++i)
+                {
+                    if(iters[i][iteration])
+                    {
+                        ctr ++;
+                    }
+                }
+                if(ctr == numThread)
+                {
+                    horn = true;
+                    break;
+                }
+            }
+            if(horn)
+            {
+                break;
+            }
+            iteration++;
     }
+    std::cout << "Thread " << threadIdx << " exiting with " << iteration << " iterations.\n";
 }
 
 void sortThread(int start, int end, int numThread)
 {
+
+    std::thread threads[65];
     int split = (end-start)/numThread;
     int newStart = start, newEnd = newStart+split;
 
@@ -242,14 +249,15 @@ void Sync_with_previous(int id, int i)
 
 void Sync_with_next(int id, int i)
 {
-    if (id < n-1)
+    if (id < numThread-1)
     {
         //pthread_mutex_lock(&mutex[id+1]);
         index[id] = i;
         {
-           std::lock_guard<std::mutex> lock(mu2[id]);
+           std::lock_guard<std::mutex> lock(mu2[id+1]);
            flag[id+1] = true;
            myconds[id+1].notify_one();
+           flag[id+1] = false;
         }
         //pthread_cond_signal(&cond[id+1]);
         //pthread_mutex_unlock(&mutex[id+1]);
