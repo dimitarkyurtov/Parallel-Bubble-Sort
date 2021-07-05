@@ -11,21 +11,31 @@
 #include<ctime>
 #include<mutex>
 #include<stack>
+#include <condition_variable>
 
 
-std::thread threads[10];
-int arr[100000000], arr2[100000000], arr3[100000000], n = 40000, numThread = 1;
+bool flag[10];
+int index[10];
+std::mutex mu[10], mu2[10];
+std::condition_variable myconds[10];
+void Sync_with_previous(int, int);
+void Sync_with_next(int, int);
+std::thread threads[65];
+int arr[100000000], arr2[100000000], arr3[100000000], n = 50000, numThread = 1;
 bool isSortedd[65];
+std::mutex mutexes[65], gl_mu;
 
 
 int getRandom(int);
 void init();
+void initCond();
 void printArr();
 void cpyArr(int [], int []);
 void bubbleSort(int, int, int);
 void sortThread(int, int, int);
 void merge(int);
 void testWithThreads();
+void lockAll();
 bool isSortedAllThreads();
 bool isSorted();
 
@@ -33,6 +43,7 @@ int main()
 {
     init();
     cpyArr(arr, arr3);
+    lockAll();
     do
     {
         //printArr();
@@ -63,6 +74,15 @@ void init()
     }
 }
 
+void initCond()
+{
+    for(int i = 0; i < numThread; ++i)
+    {
+        index[i] = 0;
+        flag[i] = false;
+    }
+}
+
 void printArr()
 {
     for(int i = 0; i < n; ++i)
@@ -82,14 +102,22 @@ void cpyArr(int arr[], int arr3[])
     }
 }
 
+void lockAll()
+{
+   for(int i = 1; i < numThread; ++i)
+    {
+        mutexes[i].lock();
+    }
+}
 
 void testWithThreads()
 {
+    initCond();
     int startTime = clock();
     sortThread(0, n, numThread);
     //merge(numThread);
     int endTime = clock();
-    std::cout << "Execution time with " << numThread << " threads: " <<
+    std::cout << numThread << " threads: " <<
             (endTime - startTime)/double(CLOCKS_PER_SEC)
             << std::endl;
     std::cout << "Is it sorted: " << isSorted() << std::endl;
@@ -101,11 +129,11 @@ bool isSorted()
     {
         if(arr[i] > arr[i+1])
         {
-            std::cout << "Sorting unsuccessful!" << std::endl;
+            //std::cout << "Sorting unsuccessful!" << std::endl;
             return false;
         }
     }
-    std::cout << "Sorting successful!" << std::endl;
+    //std::cout << "Sorting successful!" << std::endl;
     return true;
 }
 
@@ -125,30 +153,28 @@ void bubbleSort(int start, int end, int threadIdx)
 {
     bool isSorted;
     int iteration = 0;
-    std::mutex mu;
     if(start == 0)
     {
         start = 1;
     }
-    do
+    for(int j = 0; j < 5*n/4; ++j)
     {
-        if(iteration > n)
-        {
-            break;
-        }
-        if(iteration == 1 && threadIdx < numThread)
-        {
-            threads[threadIdx] = std::thread(bubbleSort, threadIdx*(n/numThread), (threadIdx+1)*(n/numThread), threadIdx+1);
-        }
-
+       // gl_mu.lock();
+       // std::cout << "Thread " << threadIdx << " iteration " << iteration << std::endl;
+        //gl_mu.unlock();
         /*
+        if(threadIdx == 0)
         {
-            std::lock_guard<std::mutex> lock(mu);
-            std::cout << "Thread " << threadIdx << " running iteration " << iteration << " start " << start << " end " << end << std::endl;
-            printArr();
+            gl_mu.lock();
+            for(int i = 0; i < numThread; ++i)
+            {
+                isSortedd[i] = false;
+            }
+            gl_mu.unlock();
         }
         */
-
+        Sync_with_previous(threadIdx, j);
+        //std::cout << "Thread " << threadIdx << " running\n";
         isSorted = true;
         for(int i = start-1; i < end && i < n-1; ++i)
         {
@@ -159,24 +185,38 @@ void bubbleSort(int start, int end, int threadIdx)
             }
         }
         //printArr();
+        /*
         if(isSorted)
         {
-            isSortedd[threadIdx-1] = true;
+
+            gl_mu.lock();
+            isSortedd[threadIdx] = true;
+            gl_mu.unlock();
         }
         else
         {
-            isSortedd[threadIdx-1] = false;
+            gl_mu.lock();
+            isSortedd[threadIdx] = false;
+            gl_mu.unlock();
         }
-        iteration++;
-    }while(true);
+        */
+
+       Sync_with_next(threadIdx, j);
+
+    }
 }
 
 void sortThread(int start, int end, int numThread)
 {
     int split = (end-start)/numThread;
+    int newStart = start, newEnd = newStart+split;
 
-
-    threads[0] = std::thread(bubbleSort, 0, split, 1);
+    for(int i = 0; i < numThread; ++i)
+    {
+        threads[i] = std::thread(bubbleSort, newStart, newEnd, i);
+        newStart += split;
+        newEnd += split;
+    }
 
     for(int i = 0; i < numThread; ++i)
     {
@@ -184,34 +224,35 @@ void sortThread(int start, int end, int numThread)
     }
 }
 
-void merge(int numThread)
+void Sync_with_previous(int id, int i)
 {
-    int markers[32], markersMin[32];
-    int split = n/numThread;
-    int start = -1, max, idx;
-    for(int i = 0; i < numThread; ++i)
-    {
-        markersMin[i] = start;
-        start += split;
-        markers[i] = start;
-    }
-
-    for(int j = n-1; j >= 0; --j)
-    {
-        max = -1;
-        idx = 0;
-        for(int i = 0; i < numThread; ++i)
+    if (id>0) {
+        //pthread_mutex.lock(&mutex[id]);
+        if (index[id-1]<i)
         {
-            if(markers[i] > markersMin[i] && arr[markers[i]] > max)
-            {
-                max = arr[markers[i]];
-                idx = i;
-            }
+            std::unique_lock<std::mutex> lock(mu[id]);
+            myconds[id].wait_for( lock,
+                        std::chrono::seconds(100),
+                        [id]() {  return flag[id]; } );
         }
-        if(max != -1){
-            arr2[j] = max;
-            markers[idx] --;
+        //pthread_cond_wait(&cond[id],&mutex[id]);
+        //pthread_mutex_unlock(&mutex[id]);
+   }
+}
+
+void Sync_with_next(int id, int i)
+{
+    if (id < n-1)
+    {
+        //pthread_mutex_lock(&mutex[id+1]);
+        index[id] = i;
+        {
+           std::lock_guard<std::mutex> lock(mu2[id]);
+           flag[id+1] = true;
+           myconds[id+1].notify_one();
         }
+        //pthread_cond_signal(&cond[id+1]);
+        //pthread_mutex_unlock(&mutex[id+1]);
     }
 }
 
