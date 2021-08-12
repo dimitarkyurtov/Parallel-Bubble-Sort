@@ -115,12 +115,14 @@ void testWithThreads()
     initCond();
     //z = 4000;
     z = n / (numThread*2);
-    int startTime = clock();
+    //int startTime = clock();
+    auto timeVal = std::chrono::steady_clock::now();
     sortThread(0, n, numThread);
     //merge(numThread);
-    int endTime = clock();
+    //int endTime = clock();
+    std::chrono::duration<double> timePassed = std::chrono::steady_clock::now() - timeVal;
     std::cout << numThread << " threads: " <<
-            (endTime - startTime)/double(CLOCKS_PER_SEC)
+            timePassed.count()
             << std::endl;
     std::cout << "Is it sorted: " << isSorted() << std::endl;
 }
