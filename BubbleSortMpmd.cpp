@@ -14,10 +14,10 @@
 #include <condition_variable>
 
 
-bool flag[10];
-int index[10];
-std::mutex mu[10], mu2[10];
-std::condition_variable myconds[10];
+bool flag[65];
+int index[65];
+std::mutex mu[10], mu2[65];
+std::condition_variable myconds[65];
 void Sync_with_previous(int, int);
 void Sync_with_next(int, int);
 std::thread threads[65];
@@ -39,8 +39,12 @@ void lockAll();
 bool isSortedAllThreads();
 bool isSorted();
 
-int main()
+int main(int argc, char *argv[])
 {
+    if(argc > 2)
+    {
+        n = argc[2];
+    }
     init();
     cpyArr(arr, arr3);
     lockAll();
@@ -51,7 +55,7 @@ int main()
         //printArr();
         numThread *= 2;
         cpyArr(arr3, arr);
-    }while(numThread <= 4);
+    }while(numThread <= argv[1]);
     return 0;
 }
 
