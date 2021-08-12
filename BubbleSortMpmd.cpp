@@ -21,7 +21,7 @@ std::condition_variable myconds[10];
 void Sync_with_previous(int, int);
 void Sync_with_next(int, int);
 std::thread threads[65];
-int arr[100000000], arr2[100000000], arr3[100000000], n = 40000, numThread = 1, z = 4000;
+int arr[100000000], arr2[100000000], arr3[100000000], n = 60000, numThread = 1, z = 8000;
 bool isSortedd[65];
 std::mutex mutexes[65], gl_mu;
 
@@ -113,6 +113,8 @@ void lockAll()
 void testWithThreads()
 {
     initCond();
+    //z = 4000;
+    z = n / (numThread*2);
     int startTime = clock();
     sortThread(0, n, numThread);
     //merge(numThread);
@@ -164,7 +166,7 @@ void bubbleSort(int start, int end, int threadIdx)
             if(j % z == 0 && j != 0)
             {
                 Sync_with_next(threadIdx, 0);
-                Sync_with_previous(threadIdx, 0);
+                //Sync_with_previous(threadIdx, 0);
             }
             if(arr[j] > arr[j+1])
             {
