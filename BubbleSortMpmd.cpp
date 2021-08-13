@@ -127,6 +127,8 @@ void testWithThreads()
     std::chrono::duration<double> timePassed = std::chrono::steady_clock::now() - timeVal;
     std::cout << numThread << " threads: " <<
             timePassed.count()
+            << " total: "
+            << timePassed.count()*numThread
             << std::endl;
     std::cout << "Is it sorted: " << isSorted() << std::endl;
 }
