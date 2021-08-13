@@ -16,7 +16,7 @@
 
 bool flag[65];
 int index[65];
-std::mutex mu[10], mu2[65];
+std::mutex mu[65], mu2[65];
 std::condition_variable myconds[65];
 void Sync_with_previous(int, int);
 void Sync_with_next(int, int);
@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
         //printArr();
         testWithThreads();
         //printArr();
-        numThread *= 2;
+        numThread ++;
         cpyArr(arr3, arr);
     }while(numThread <= atoi(argv[1]));
     return 0;
@@ -165,11 +165,11 @@ void bubbleSort(int start, int end, int threadIdx)
     {
         start = 1;
     }
-    for(int i = 0; i < n/numThread; ++i)
+    for(int i = 0; i < n/numThread+1; ++i)
     {
         for(int j = 0; j < n-1; ++j)
         {
-            if(j % z == 0 && j != 0)
+            if((j % z == 0 && j != 0) || j == n-2)
             {
                 Sync_with_next(threadIdx, 0);
                 //Sync_with_previous(threadIdx, 0);
