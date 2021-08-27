@@ -1,16 +1,7 @@
-#include<cstdlib>
 #include<iostream>
-#include<string>
-#include<vector>
-#include<ctime>
-#include<numeric>
-#include<cmath>
-#include<sstream>
+#include<queue>
 #include<thread>
 #include<chrono>
-#include<ctime>
-#include<mutex>
-#include<stack>
 
 int arr[100000000], arr2[100000000], arr3[100000000], n = 40000, numThread = 1;
 bool isSortedd;
@@ -26,16 +17,17 @@ void merge(int);
 void testWithThreads();
 bool isSorted();
 
-int main()
+int main(int argc, char *argv[])
 {
     init();
+    n = atoi(argv[2]);
     cpyArr(arr, arr3);
     do
     {
         testWithThreads();
-        numThread *= 2;
+        numThread ++;
         cpyArr(arr3, arr);
-    }while(numThread <= 4);
+    }while(numThread <= atoi(argv[1]));
     return 0;
 }
 
@@ -76,12 +68,14 @@ void cpyArr(int arr[], int arr3[])
 
 void testWithThreads()
 {
-    int startTime = clock();
+    auto timeVal = std::chrono::steady_clock::now();
     sortThread(0, n, numThread);
     merge(numThread);
-    int endTime = clock();
-    std::cout << "Execution time with " << numThread << " threads: " <<
-            (endTime - startTime)/double(CLOCKS_PER_SEC)
+    std::chrono::duration<double> timePassed = std::chrono::steady_clock::now() - timeVal;
+    std::cout << numThread << " threads: " <<
+            timePassed.count()
+            << " total: "
+            << timePassed.count()*numThread
             << std::endl;
     std::cout << "Is it sorted: " << isSorted() << std::endl;
 }
@@ -120,7 +114,7 @@ void bubbleSort(int start, int end)
 
 void sortThread(int start, int end, int numThread)
 {
-    std::thread threads[10];
+    std::thread threads[32];
     int split = (end-start)/numThread;
     int newStart = start, newEnd = start+split;
 
