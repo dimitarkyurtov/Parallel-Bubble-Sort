@@ -20,14 +20,14 @@ bool isSorted();
 int main(int argc, char *argv[])
 {
     init();
-    n = atoi(argv[2]);
+    //n = atoi(argv[2]);
     cpyArr(arr, arr3);
     do
     {
         testWithThreads();
         numThread ++;
         cpyArr(arr3, arr);
-    }while(numThread <= atoi(argv[1]));
+    }while(numThread <= 4);
     return 0;
 }
 

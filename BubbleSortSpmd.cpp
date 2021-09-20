@@ -1,29 +1,28 @@
 #include<cstdlib>
 #include<iostream>
-#include<string>
-#include<vector>
-#include<ctime>
 #include<numeric>
 #include<cmath>
 #include<sstream>
 #include<thread>
 #include<chrono>
-#include<ctime>
 #include<mutex>
 #include<vector>
 #include <condition_variable>
+#include <map>
 
 
-bool flag[10];
-int index[10];
-std::vector<bool> iters[65];
-std::mutex mu[10], mu2[10], lidermu;
-std::condition_variable myconds[10];
+bool flag[65];
+int index[65];
+std::vector<int> iters;
+std::vector<bool> sorted[65];
+std::mutex mu[65], mu2[65], lidermu;
+std::condition_variable myconds[65];
 void Sync_with_previous(int, int);
 void Sync_with_next(int, int);
-int arr[100000000], arr2[100000000], arr3[100000000], n = 40000, numThread = 1;
-bool isSortedd[65];
+int arr[100000000], arr3[100000000], n = 42000, numThread = 1;
+//bool isSortedd[65];
 std::mutex mutexes[65], gl_mu;
+std::map<int,int> itermap;
 int lider, part;
 bool horn = false;
 
@@ -39,20 +38,21 @@ void sortThread(int, int, int);
 void merge(int);
 void testWithThreads();
 void lockAll();
-bool isSortedAllThreads();
+bool isSortedAllThreads(int);
 bool isSorted();
 
-int main()
+int main(int argc, char *argv[])
 {
     init();
     cpyArr(arr, arr3);
+    //n = atoi(argv[2]);
     lockAll();
     do
     {
         //printArr();
         testWithThreads();
         //printArr();
-        numThread *= 2;
+        numThread ++;
         cpyArr(arr3, arr);
     }while(numThread <= 4);
     return 0;
@@ -71,10 +71,6 @@ void init()
     {
         arr[i] = getRandom(100000);
     }
-    for(int i = 0; i < numThread; ++i)
-    {
-        isSortedd[i] = false;
-    }
 }
 
 void initCond()
@@ -83,8 +79,10 @@ void initCond()
     {
         index[i] = -1;
         flag[i] = false;
-        iters[i].clear();
     }
+    itermap.clear();
+    //std::cout << "Here" << std::endl;
+    //std::cout << "There" << std::endl;
     horn = false;
 }
 
@@ -103,7 +101,6 @@ void cpyArr(int arr[], int arr3[])
     for(int i = 0; i < n; ++i)
     {
         arr3[i] = arr[i];
-        arr2[i] = 0;
     }
 }
 
@@ -117,21 +114,18 @@ void lockAll()
 
 void testWithThreads()
 {
+
+    //std::cout << "thread " <<  " exiting" << std::endl;
     initCond();
-    for(int i = 0; i < numThread; ++i)
-    {
-        std::cout << iters[i].size() << std::endl;
-    }
-    lider = numThread - 1;
-    part = n/numThread;
-    int startTime = clock();
+    auto timeVal = std::chrono::steady_clock::now();
     sortThread(0, n, numThread);
     //merge(numThread);
-    int endTime = clock();
+    std::chrono::duration<double> timePassed = std::chrono::steady_clock::now() - timeVal;
     std::cout << numThread << " threads: " <<
-            (endTime - startTime)/double(CLOCKS_PER_SEC)
+            timePassed.count()
+            << " total: "
+            << timePassed.count()*numThread
             << std::endl;
-    //printArr();
     std::cout << "Is it sorted: " << isSorted() << std::endl;
 }
 
@@ -149,11 +143,11 @@ bool isSorted()
     return true;
 }
 
-bool isSortedAllThreads()
+bool isSortedAllThreads(int iteration)
 {
     for(int i = 0; i < numThread; ++i)
     {
-        if(!isSortedd[i])
+        if(!sorted[i][iteration])
         {
             return false;
         }
@@ -163,61 +157,56 @@ bool isSortedAllThreads()
 
 void bubbleSort(int start, int end, int threadIdx)
 {
-    bool isSorted;
-    int iteration = 0;
-    int decr = 0;
-    //for(int j = 0; j < 5*n/4; ++j)
-    while(true)
+    bool isSortedd;
+    int iter = 0;
+    if(start == 0)
+        start = 1;
+    //std::cout << "thread " << threadIdx << " entering" << std::endl;
+    while(!horn && iter < n*10)
     {
-
-            //std::cout << threadIdx << " " << iteration << std::endl;
-            Sync_with_previous(threadIdx, iteration);
-            isSorted = true;
-            for(int i = start; i < end && i < n-1; ++i)
+            Sync_with_previous(threadIdx, iter);
+            isSortedd = true;
+            for(int i = start-1; i < end+1 && i < n-1; ++i)
             {
                 if(arr[i] > arr[i+1])
                 {
                     std::swap(arr[i], arr[i+1]);
-                    isSorted = false;
+                    isSortedd = false;
                 }
             }
-            Sync_with_next(threadIdx, iteration);
-            if(iteration < 10*n)
+            Sync_with_next(threadIdx, iter);
+            if(isSortedd)
             {
-                iters[threadIdx].push_back(isSorted);
-            }
-            if(threadIdx == numThread-1)
-            {
-                int ctr = 0;
-                for(int i = 0; i < numThread; ++i)
-                {
-                    if(iters[i][iteration])
-                    {
-                        ctr ++;
-                    }
+                //std::lock_guard<std::mutex> lock(gl_mu);
+                if ( itermap.find(iter) == itermap.end() ) {
+                  // not found
+                  itermap[iter] = 1;
+                } else {
+                  // found
+                  itermap[iter] ++;
                 }
-                if(ctr == numThread)
+                if(itermap[iter] == numThread)
                 {
+                    //std::cout << "iteration " << iter << " numThread " << numThread << std::endl;
                     horn = true;
-                    break;
                 }
             }
-            if(horn)
+            else
             {
-                break;
+                //horn = false;
             }
-            iteration++;
+            iter ++;
     }
-    std::cout << "Thread " << threadIdx << " exiting with " << iteration << " iterations.\n";
+    //std::cout << "thread " << threadIdx << " exiting" << std::endl;
 }
 
 void sortThread(int start, int end, int numThread)
 {
-
     std::thread threads[65];
-    int split = (end-start)/numThread;
+    int split = ((end-start)/numThread)+1;
     int newStart = start, newEnd = newStart+split;
 
+    //std::cout << split << std::endl;
     for(int i = 0; i < numThread; ++i)
     {
         threads[i] = std::thread(bubbleSort, newStart, newEnd, i);
@@ -249,6 +238,7 @@ void Sync_with_previous(int id, int i)
 
 void Sync_with_next(int id, int i)
 {
+
     if (id < numThread-1)
     {
         //pthread_mutex_lock(&mutex[id+1]);

@@ -14,10 +14,10 @@
 #include <condition_variable>
 
 
-bool flag[10];
-int index[10];
-std::mutex mu[10], mu2[10];
-std::condition_variable myconds[10];
+bool flag[65];
+int index[65];
+std::mutex mu[65], mu2[65];
+std::condition_variable myconds[65];
 void Sync_with_previous(int, int);
 void Sync_with_next(int, int);
 std::thread threads[65];
@@ -39,19 +39,20 @@ void lockAll();
 bool isSortedAllThreads();
 bool isSorted();
 
-int main()
+int main(int argc, char *argv[])
 {
     init();
     cpyArr(arr, arr3);
+    n = atoi(argv[2]);
     lockAll();
     do
     {
         //printArr();
         testWithThreads();
         //printArr();
-        numThread *= 2;
+        numThread ++;
         cpyArr(arr3, arr);
-    }while(numThread <= 4);
+    }while(numThread <= atoi(argv[1]));
     return 0;
 }
 
@@ -113,12 +114,14 @@ void lockAll()
 void testWithThreads()
 {
     initCond();
-    int startTime = clock();
+    auto timeVal = std::chrono::steady_clock::now();
     sortThread(0, n, numThread);
     //merge(numThread);
-    int endTime = clock();
+    std::chrono::duration<double> timePassed = std::chrono::steady_clock::now() - timeVal;
     std::cout << numThread << " threads: " <<
-            (endTime - startTime)/double(CLOCKS_PER_SEC)
+            timePassed.count()
+            << " total: "
+            << timePassed.count()*numThread
             << std::endl;
     std::cout << "Is it sorted: " << isSorted() << std::endl;
 }
@@ -212,6 +215,10 @@ void sortThread(int start, int end, int numThread)
 
     for(int i = 0; i < numThread; ++i)
     {
+        if(i == numThread-1)
+        {
+            newEnd = end;
+        }
         threads[i] = std::thread(bubbleSort, newStart, newEnd, i);
         newStart += split;
         newEnd += split;

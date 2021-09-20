@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 {
     if(argc > 2)
     {
-        //n = atoi(argv[2]);
+        n = atoi(argv[2]);
     }
     init();
     cpyArr(arr, arr3);
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
         //printArr();
         numThread  ++;
         cpyArr(arr3, arr);
-    }while(numThread <= 4);
+    }while(numThread <= atoi(argv[1]));
     return 0;
 }
 
